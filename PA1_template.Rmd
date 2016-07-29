@@ -1,25 +1,113 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Week2 Assignment - Reproducible Research"
+author: "Nadine Hamilton"
+date: "29 July 2016"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 2, digits = 0)
+```
+## Introduction
+This report is contains an analysis of activity monitoring data as an assignment for Week 2 of the Reproducible Research course on Coursera. It contains the R code used to load and clean the data, and the resulting analysis and interpretation of results.
 
-## Loading and preprocessing the data
+#### Assumptions
+The scripts contained within assume that the file "activity.csv" has been previously downloaded to the working directory set for this module, and that the dplyr and ggplot2 packages are available.
+
+#### Setup and loading the file
+```{r loading_file, messages = FALSE, warning = FALSE}
+# Load the dplyr package
+library(dplyr)
+library(ggplot2)
+
+# Set working directory
+setwd("C:/Nadine Hamilton/Coursera/Data Science Toolkit/datasciencecoursera/Reproduceable research/data")
+
+# Assume the file has been previously downloaded and saved to the working directory
+df_activity <- read.csv("activity.csv")
+```
+
+## Analysis
+### 1. What is mean total number of steps taken per day?
+``` {r total_steps}
+df_steps_by_day <- df_activity %>% group_by(date) %>% summarise(total_steps = sum(steps, na.rm = TRUE))
+n_mean_steps <- round(mean(df_steps_by_day$total_steps, na.rm = TRUE),0)
+n_median_steps <- round(median(df_steps_by_day$total_steps, na.rm = TRUE),0)
+hist(df_steps_by_day$total_steps, main = "", xlab = "Total steps by day")
+```
 
 
+The histogram above plots the total steps per day and shows that the most frequent daily total is between the range of 10,000 and 15,000 steps per day.
 
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
+The mean total number of steps taken per day is calculated by first grouping the base data by date, and then summing total steps to arrive at total steps per day. Then mean and median total steps per day can be calculated.
+The mean steps per day is `r n_mean_steps` and the  median steps per day is `r n_median_steps`.
 
 
+### 2. What is the average daily activity pattern?
+The following plot shows average daily pattern of activity, plotting the number of steps per 5-minute interval throughout the day. It is calculated by grouping the activity data by interval and then taking the mean. For this plot, missing or NA values are ignored. 
+It shows the bulk of activity happening between intervals numbered 500 and 2000. These identifiers mark 5-minute intervals between measurements but it is not know if there is a specific relationship to time of day.
+``` {r daily_plot}
+df_avg_steps <- df_activity %>% group_by(interval) %>% summarise(avg_steps = mean(steps, na.rm = TRUE))
+plot(df_avg_steps, type = "l")
+```
 
-## Imputing missing values
+
+The 5-minute interval which contains the maximum number of steps on average across all days is the `r df_avg_steps[df_avg_steps$avg_steps == max(df_avg_steps$avg_steps),1]` interval.
 
 
+### 3. Imputing missing values
+The original activity data set contains some missing or NA values in the Steps variable. Of the `r nrow(df_activity)` total observations, there are `r sum(is.na(df_activity$steps))` with missing or NA values.
 
-## Are there differences in activity patterns between weekdays and weekends?
+To fill in these missing values, a new data set is created called df_mod_activity which has an additional column of the average number of steps per interval. This will be used as a substitute value where there are NA or missing step values.
+``` {r fix_missing}
+df_mod_activity <- df_activity %>% group_by(interval) %>% mutate(interval_avg = round(mean(steps, na.rm = TRUE)))
+df_mod_activity$new_steps <- ifelse(is.na(df_mod_activity$steps),df_mod_activity$interval_avg, df_mod_activity$steps)
+```
+
+The following histogram shows the total steps by day for the modified (missing values substituted) data set.
+``` {r hist1}
+df_mod_steps_by_day <- df_mod_activity %>% group_by(date) %>% summarise(total_steps = sum(new_steps, na.rm = TRUE))
+hist(df_mod_steps_by_day$total_steps, main = "", xlab = "total steps per day (modifed")
+
+n_mod_mean <- round(mean(df_mod_steps_by_day$total_steps),0)
+n_mod_median <- round(median(df_mod_steps_by_day$total_steps),0)
+```
+
+The impact of substituting values is shown in the different mean and median values between the original and modified datasets.
+
+| | Mean | Median |
+| -----| -----:| ----- :|
+| Original data set | `r n_mean_steps` | `r n_median_steps` |
+| Modified data set | `r n_mod_mean` | `r n_mod_median` |
+
+For the modified data set, the mean total steps by day is `r round(mean(df_mod_steps_by_day$total_steps),0)` and the median total steps by day is `r round(median(df_mod_steps_by_day$total_steps),0)`.
+
+#### Comparing original and modified data sets
+The following plot compares two histograms of the total steps by day for the original and modified data sets to highlight the impact of substituting an average for the missing or NA values. The most significant impact is on number of steps in the range 10,000 to 15,000. The modified data set contains more observations that fall into this range than the original.
+
+``` {r combined_hist}
+# Add label to the data sets
+df_steps_by_day$label <- 'Original'
+df_mod_steps_by_day$label <- 'Modified'
+
+df_combined <- rbind(df_steps_by_day, df_mod_steps_by_day)
+ggplot(data = df_combined, aes(total_steps, fill = label)) + geom_histogram(alpha = 0.5, bins = 5, position = "identity")
+```
+
+### 4. Are there differences in activity patterns between weekdays and weekends?
+First the date variables (loaded as a string) is converted to a true date, and then the weekdays function is applied to determine weekdays vs weekends. The new column of `day_type` is then used to group the modified data set by interval and day_type to calculate the mean steps per interval on weekdays vs weekends.
+
+```{r weekend}
+df_mod_activity$day_type <- as.factor(ifelse(weekdays(as.POSIXct(df_mod_activity$date)) == c("Saturday","Sunday"),"weekend","weekday"))
+
+df_mod_avg_steps <- df_mod_activity %>% group_by(interval, day_type) %>% summarise(avg_steps = mean(new_steps))
+
+par(mfrow = c(2,1))
+
+plot(subset(x = df_mod_avg_steps, day_type == "weekend", select = c(interval, avg_steps)), type = "l", main = "Weekend", ylab = "average steps")
+plot(subset(x = df_mod_avg_steps, day_type == "weekday", select = c(interval, avg_steps)), type = "l", main = "Weekday", ylab = "average steps")
+```
+
+
+These two plots show the different patterns in activity between weekends and weekdays. The weekday plot shows a smoother line of consistent activity, whereas the weekend plot shows a more "stop-start" pattern as there peaks of activity followed by periods of rest or less movement.
