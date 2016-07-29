@@ -126,16 +126,8 @@ $(document).ready(function () {
 <div id="setup-and-loading-the-file" class="section level4">
 <h4>Setup and loading the file</h4>
 <pre class="r"><code># Load the dplyr package
-library(dplyr)</code></pre>
-<pre><code>## 
-## Attaching package: 'dplyr'</code></pre>
-<pre><code>## The following objects are masked from 'package:stats':
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from 'package:base':
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>library(ggplot2)
+library(dplyr)
+library(ggplot2)
 
 # Set working directory
 setwd(&quot;C:/Nadine Hamilton/Coursera/Data Science Toolkit/datasciencecoursera/Reproduceable research/data&quot;)
